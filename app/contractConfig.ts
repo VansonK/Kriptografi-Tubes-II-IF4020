@@ -1,5 +1,3 @@
-// src/contractConfig.ts
-
 export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS; 
 
 export const CONTRACT_ABI = 
@@ -49,6 +47,12 @@ export const CONTRACT_ABI =
 				"internalType": "string",
 				"name": "reason",
 				"type": "string"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes",
+				"name": "signature",
+				"type": "bytes"
 			}
 		],
 		"name": "DiplomaRevoked",
@@ -93,6 +97,11 @@ export const CONTRACT_ABI =
 				"internalType": "string",
 				"name": "_reason",
 				"type": "string"
+			},
+			{
+				"internalType": "bytes",
+				"name": "_signature",
+				"type": "bytes"
 			}
 		],
 		"name": "revokeDiploma",
@@ -139,6 +148,16 @@ export const CONTRACT_ABI =
 				"internalType": "bool",
 				"name": "isValid",
 				"type": "bool"
+			},
+			{
+				"internalType": "string",
+				"name": "revokeReason",
+				"type": "string"
+			},
+			{
+				"internalType": "bytes",
+				"name": "revokeSignature",
+				"type": "bytes"
 			}
 		],
 		"stateMutability": "view",
@@ -183,6 +202,16 @@ export const CONTRACT_ABI =
 				"internalType": "uint256",
 				"name": "timestamp",
 				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "revokeReason",
+				"type": "string"
+			},
+			{
+				"internalType": "bytes",
+				"name": "revokeSignature",
+				"type": "bytes"
 			}
 		],
 		"stateMutability": "view",

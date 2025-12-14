@@ -6,12 +6,10 @@ export default function Home() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // 1. Auto-check if wallet is already connected when page loads
   useEffect(() => {
     const checkConnection = async () => {
       if (typeof window.ethereum !== "undefined") {
         try {
-          // Check if we have permission to view accounts
           const accounts = await window.ethereum.request({ method: "eth_accounts" });
           if (accounts.length > 0) {
             setWalletAddress(accounts[0]);
@@ -24,7 +22,6 @@ export default function Home() {
     checkConnection();
   }, []);
 
-  // 2. Real Handler to connect wallet & switch to Sepolia
   const handleConnect = async () => {
     if (typeof window.ethereum === "undefined") {
       alert("Please install MetaMask to use this feature!");
@@ -34,7 +31,6 @@ export default function Home() {
     setIsConnecting(true);
 
     try {
-      // A. Request Access to Wallet
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
@@ -42,14 +38,12 @@ export default function Home() {
       const userAccount = accounts[0];
       setWalletAddress(userAccount);
 
-      // B. Switch to Sepolia Testnet (Chain ID: 0xaa36a7)
       try {
         await window.ethereum.request({
           method: "wallet_switchEthereumChain",
           params: [{ chainId: "0xaa36a7" }], // 11155111 in hex
         });
       } catch (switchError: any) {
-        // This error code indicates that the chain has not been added to MetaMask.
         if (switchError.code === 4902) {
           try {
             await window.ethereum.request({
@@ -83,11 +77,8 @@ export default function Home() {
     }
   };
 
-  // 3. Handler to disconnect (Only clears local state)
   const handleDisconnect = () => {
     setWalletAddress(null);
-    // Note: We cannot programmatically disconnect MetaMask from the browser side.
-    // The user must manually disconnect in the extension if they want to switch accounts fully.
   };
 
   // Helper to format address
@@ -204,7 +195,6 @@ export default function Home() {
 
           {/* Card 2: Verifier / Student */}
           <div className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50 transition-all hover:shadow-2xl hover:shadow-teal-100/50 hover:-translate-y-1">
-            {/* CHANGED: Moved from right-0 -mr-4 to left-0 -ml-4 */}
             <div className="absolute top-0 left-0 -mt-4 -ml-4 h-24 w-24 rounded-full bg-teal-100 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
             
             <div className="relative mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
@@ -241,7 +231,6 @@ export default function Home() {
   );
 }
 
-// Global type declaration (so TypeScript doesn't complain about window.ethereum)
 declare global {
   interface Window {
     ethereum: any;

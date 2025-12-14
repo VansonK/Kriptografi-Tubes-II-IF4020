@@ -2,15 +2,18 @@ import axios from "axios";
 
 const PINATA_JWT = import.meta.env.VITE_PINATA_JWT;
 
-export const uploadToIPFS = async (fileBlob: Blob): Promise<string> => {
+export const uploadToIPFS = async (file: File): Promise<string> => {
   if (!PINATA_JWT) {
     throw new Error("Missing VITE_PINATA_JWT in .env file");
   }
 
   const formData = new FormData();
-  formData.append("file", fileBlob, "encrypted_diploma.txt");
 
-  const metadata = JSON.stringify({ name: "Encrypted Diploma" });
+  formData.append("file", file);
+
+  const metadata = JSON.stringify({ 
+    name: file.name, 
+  });
   formData.append("pinataMetadata", metadata);
 
   const options = JSON.stringify({ cidVersion: 0 });
@@ -26,7 +29,6 @@ export const uploadToIPFS = async (fileBlob: Blob): Promise<string> => {
         },
       }
     );
-    // Returns the CID (e.g., QmXyz...)
     return res.data.IpfsHash; 
   } catch (error) {
     console.error("IPFS Upload Error:", error);

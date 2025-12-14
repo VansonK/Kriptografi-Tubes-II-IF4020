@@ -1,30 +1,30 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ethers } from "ethers";
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts, PDFName } from 'pdf-lib';
 import { 
   ShieldCheck, Search, Lock, CheckCircle2, 
   Loader2, Download, ExternalLink, FileText 
 } from "lucide-react";
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from "../contractConfig";
-// FIX: Import base64ToUint8Array
 import { calculateBufferHash, base64ToUint8Array } from "../utils/cryptoUtils";
 import CryptoJS from "crypto-js";
 
 export default function Verify() {
   const [searchParams] = useSearchParams();
   const [inputUrl, setInputUrl] = useState("");
-  const [status, setStatus] = useState<"idle" | "verifying" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "verifying" | "success" | "error" | "revoked">("idle");
   const [logs, setLogs] = useState<string[]>([]);
   const [decryptedPdfUrl, setDecryptedPdfUrl] = useState<string | null>(null);
   const [modifiedPdfBytes, setModifiedPdfBytes] = useState<Uint8Array | null>(null);
   const [metaData, setMetaData] = useState<any>(null);
+  const [revocationData, setRevocationData] = useState<{reason: string, signature: string} | null>(null);
 
   useEffect(() => {
     const dataParam = searchParams.get("data");
     if (dataParam) {
-      setInputUrl(decodeURIComponent(dataParam));
-      handleVerify(decodeURIComponent(dataParam));
+      setInputUrl(dataParam);
+      handleVerify(dataParam);
     }
   }, [searchParams]);
 
@@ -37,43 +37,28 @@ export default function Verify() {
     setDecryptedPdfUrl(null);
 
     try {
-      // 1. Parse URL
       addLog("Parsing Unlisted URL parameters...");
       const parts = fullPayload.split("|");
       if (parts.length !== 3) throw new Error("Invalid URL format");
       
       const [ipfsUrl, aesKey, txHash] = parts;
       
-      // 2. Fetch Encrypted Data
       addLog("Fetching encrypted document from IPFS...");
       const response = await fetch(ipfsUrl);
       if (!response.ok) throw new Error("Failed to fetch file from IPFS");
       const encryptedText = await response.text();
       
-      // 3. Decrypt
       addLog("Decrypting content...");
       const decryptedBytes = CryptoJS.AES.decrypt(encryptedText, aesKey);
-      
-      // CRITICAL FIX: Convert decrypted bytes to UTF-8 String first (recovering the Base64)
       const decryptedBase64 = decryptedBytes.toString(CryptoJS.enc.Utf8);
 
       if (!decryptedBase64) throw new Error("Decryption failed. Invalid Key.");
 
-      // 4. Convert Base64 back to Raw Binary (Uint8Array)
-      // We must hash the raw binary, not the Base64 string
       const fileRawBytes = base64ToUint8Array(decryptedBase64);
       
-      addLog("Decryption successful. Reconstructing file...");
-
-      // 5. Verify Integrity (Hash the Raw Binary)
-      addLog("Calculating file integrity hash...");
+      addLog("Integrity check and Blockchain Verification...");
       const calculatedHash = await calculateBufferHash(fileRawBytes.buffer as ArrayBuffer);
       
-      console.log("Calculated Hash (Verify Side):", calculatedHash);
-      addLog(`File Hash: ${calculatedHash.substring(0, 15)}...`);
-
-      // 6. Blockchain Verification
-      addLog(`Querying Smart Contract...`);
       let provider;
       if (window.ethereum) {
           provider = new ethers.BrowserProvider(window.ethereum);
@@ -81,18 +66,26 @@ export default function Verify() {
           provider = new ethers.JsonRpcProvider("https://1rpc.io/sepolia");   
       }
       
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-      
-      // Call contract to check hash
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI as any, provider);
       const result = await contract.verifyDiploma(calculatedHash);
-      
-      console.log("Contract Result:", result);
 
-      if (!result.isValid) throw new Error("Blockchain reports this Diploma is REVOKED or INVALID.");
-      
-      // Double check hash match just to be safe
       if (result.fileHash.toLowerCase() !== calculatedHash.toLowerCase()) {
-         throw new Error(`Hash mismatch! Chain: ${result.fileHash}, File: ${calculatedHash}`);
+          throw new Error(`Hash mismatch! Chain: ${result.fileHash}, File: ${calculatedHash}`);
+      }
+
+      if (!result.isValid) {
+          addLog(`⚠️ DIPLOMA REVOKED! Reason: ${result.revokeReason}`);
+          setMetaData({
+              issuer: result.issuer,
+              timestamp: new Date(Number(result.timestamp) * 1000).toLocaleDateString(),
+              txHash: txHash
+          });
+          setRevocationData({
+              reason: result.revokeReason,
+              signature: result.revokeSignature
+          });
+          setStatus("revoked"); 
+          return; 
       }
       
       addLog(`✅ Blockchain Verified! Issuer: ${result.issuer}`);
@@ -102,21 +95,60 @@ export default function Verify() {
         txHash: txHash
       });
 
-      // 7. Modify PDF (Bonus Requirement)
-      addLog("Stamping Verification URL onto PDF...");
+      // --- PDF MODIFICATION START ---
+      addLog("Stamping Verification Data onto PDF...");
       
       const pdfDoc = await PDFDocument.load(fileRawBytes);
       const pages = pdfDoc.getPages();
       const firstPage = pages[0];
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-      firstPage.drawText(`Digital Verification: ${fullPayload.substring(0, 40)}...`, {
-        x: 20,
-        y: 20,
-        size: 8,
-        font: font,
-        color: rgb(0, 0.5, 0),
+      const currentOrigin = window.location.origin;
+      const fullVerificationLink = `${currentOrigin}/verify?data=${encodeURIComponent(fullPayload)}`;
+      
+      const maxCharsPerLine = 110;
+      const label = "Digital Verification Link (Click to Verify): ";
+      const fullText = label + fullVerificationLink;
+      
+      const chunks = [];
+      for (let i = 0; i < fullText.length; i += maxCharsPerLine) {
+          chunks.push(fullText.substring(i, i + maxCharsPerLine));
+      }
+
+      const lineHeight = 10;
+      const startY = 20;
+      
+      chunks.reverse().forEach((chunk, index) => {
+          firstPage.drawText(chunk, {
+            x: 20,
+            y: startY + (index * lineHeight), 
+            size: 7,
+            font: font,
+            color: rgb(0, 0.5, 0), // Dark Green
+          });
       });
+
+      const totalHeight = chunks.length * lineHeight;
+      const linkAnnotation = pdfDoc.context.register(
+        pdfDoc.context.obj({
+          Type: 'Annot',
+          Subtype: 'Link',
+          Rect: [15, startY - 2, 550, startY + totalHeight + 2], 
+          Border: [0, 0, 0], 
+          A: {
+            Type: 'Action',
+            S: 'URI',
+            URI: fullVerificationLink, 
+          },
+        })
+      );
+
+      const annotations = firstPage.node.Annots();
+      if (annotations) {
+        annotations.push(linkAnnotation);
+      } else {
+        firstPage.node.set(PDFName.of('Annots'), pdfDoc.context.obj([linkAnnotation]));
+      }
 
       const modifiedPdf = await pdfDoc.save();
       setModifiedPdfBytes(modifiedPdf);
@@ -205,7 +237,37 @@ export default function Verify() {
 
         {/* Right Col: PDF Preview */}
         <div className="lg:col-span-2">
-           {status === 'success' && decryptedPdfUrl ? (
+           {status === 'revoked' && revocationData ? (
+            <div className="bg-red-50 border-2 border-red-200 rounded-xl p-8 text-center animate-in fade-in">
+                <div className="mx-auto bg-red-100 w-20 h-20 rounded-full flex items-center justify-center mb-6">
+                    <ShieldCheck size={40} className="text-red-600" />
+                </div>
+                
+                <h2 className="text-3xl font-bold text-red-800 mb-2">Credential Revoked</h2>
+                <p className="text-red-600 mb-8">
+                    This diploma has been permanently invalidated by the issuer.
+                </p>
+
+                <div className="bg-white p-6 rounded-xl border border-red-100 text-left space-y-4 shadow-sm">
+                    <div>
+                        <p className="text-xs font-bold text-slate-500 uppercase">Revocation Reason</p>
+                        <p className="text-lg text-slate-800 font-medium">{revocationData.reason}</p>
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-bold text-slate-500 uppercase">Issuer Signature (Revocation Proof)</p>
+                        <p className="text-xs font-mono text-slate-500 break-all bg-slate-50 p-3 rounded mt-1 border">
+                            {revocationData.signature}
+                        </p>
+                    </div>
+
+                    <div>
+                        <p className="text-xs font-bold text-slate-500 uppercase">Original Issuer</p>
+                        <p className="text-sm font-mono text-slate-700">{metaData?.issuer}</p>
+                    </div>
+                </div>
+            </div>
+        ) : status === 'success' && decryptedPdfUrl ? (
              <div className="animate-in fade-in slide-in-from-bottom-4">
                <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-bold flex items-center gap-2"><FileText /> Decrypted Diploma</h2>

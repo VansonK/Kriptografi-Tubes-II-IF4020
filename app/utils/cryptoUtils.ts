@@ -26,8 +26,6 @@ export const wordArrayToUint8Array = (wordArray: any) => {
     return u8;
 };
 
-// --- KEEPING EXISTING FUNCTIONS BELOW ---
-
 /**
  * 2. Generate a random AES Key
  */
