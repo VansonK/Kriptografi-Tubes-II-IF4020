@@ -230,7 +230,7 @@ export default function Home() {
     </div>
   );
 }
-
+ 
 declare global {
   interface Window {
     ethereum: any;
