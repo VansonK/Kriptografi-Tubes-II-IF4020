@@ -1,87 +1,74 @@
-# Welcome to React Router!
+# 🛡️ Chainify - Blockchain Credential Verification System
 
-A modern, production-ready template for building full-stack React applications using React Router.
+**Chainify** adalah sistem verifikasi dokumen terdesentralisasi yang memanfaatkan Blockchain Ethereum dan penyimpanan IPFS untuk menerbitkan, membagikan, dan memvalidasi kredensial akademik (seperti Ijazah) secara aman, transparan, dan anti-manipulasi.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+Proyek ini dirancang dengan pendekatan *Privacy-First*, memastikan dokumen fisik tetap rahasia melalui enkripsi sisi klien, sementara validitas dan integritasnya dijamin oleh buku besar publik (Blockchain).
 
-## Features
+---
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+## 🔐 Spesifikasi Kriptografi
 
-## Getting Started
+Sistem ini menerapkan standar kriptografi industri untuk menjamin kerahasiaan, integritas, dan otentikasi:
 
-### Installation
+| Algoritma | Tipe | Kegunaan dalam Sistem |
+| :--- | :--- | :--- |
+| **AES-256** | *Symmetric Encryption* | Mengenkripsi file PDF di sisi klien (browser) sebelum diunggah ke IPFS. Memastikan file tidak bisa dibaca oleh publik tanpa kunci dekripsi khusus. |
+| **SHA-256** | *Hashing Function* | Menghasilkan "sidik jari" unik dari file PDF asli. Hash ini disimpan di Smart Contract untuk memverifikasi integritas dokumen (mendeteksi perubahan 1 bit pun). |
+| **ECDSA** *(secp256k1)* | *Digital Signature* | **1. Transaksi:** Menandatangani setiap interaksi ke Blockchain (Issuance).<br>**2. Revocation:** Digunakan untuk memverifikasi tanda tangan kriptografis Issuer saat melakukan pencabutan (revoke) kredensial, menjamin *non-repudiation*. |
+| **Keccak-256** | *Hashing Function* | Algoritma hashing native Ethereum, digunakan untuk menghasilkan address wallet dan *function selectors* pada Smart Contract. |
 
-Install the dependencies:
+---
 
+## ✨ Fitur Utama
+
+### 1. Secure Issuance (Penerbitan Aman)
+* **Client-Side Encryption:** Dokumen PDF dienkripsi lokal sebelum meninggalkan browser pengguna.
+* **Decentralized Storage:** File terenkripsi disimpan di IPFS (InterPlanetary File System), menjamin ketersediaan data permanen tanpa server terpusat.
+* **On-Chain Proof:** Hash dokumen dicatat di Ethereum Smart Contract sebagai bukti keaslian abadi.
+
+### 2. Trustless Verification (Verifikasi Tanpa Perantara)
+* **Auto-Decryption:** URL verifikasi mengandung kunci dekripsi yang secara otomatis membuka dokumen untuk pemegang link.
+* **Tamper Proof:** Membandingkan hash file yang diunduh dengan hash di Blockchain. Jika berbeda, dokumen ditolak.
+* **Smart PDF Stamping:** Jika valid, sistem menyuntikkan *watermark* dan link transparan ke dalam file PDF, memudahkan verifikasi ulang di masa depan.
+
+### 3. Revocation System (Sistem Pencabutan)
+* **Cryptographic Proof:** Issuer dapat mencabut dokumen dengan menyertakan alasan dan tanda tangan digital.
+* **Transparency:** Status pencabutan, alasan, dan bukti tanda tangan ditampilkan secara publik di halaman verifikasi (Etherscan & UI).
+
+---
+
+## 🛠️ Tech Stack
+
+* **Frontend:** React, TypeScript, Vite, Tailwind CSS
+* **Blockchain Interaction:** Ethers.js v6
+* **Smart Contract:** Solidity (Sepolia Testnet)
+* **Storage:** IPFS (via Pinata API)
+* **Libraries:**
+    * `crypto-js`: Untuk enkripsi/dekripsi AES.
+    * `pdf-lib`: Untuk manipulasi PDF dan pembuatan anotasi link.
+    * `lucide-react`: Untuk ikon UI.
+
+---
+
+## ⚙️ Instalasi & Setup Developer
+
+Ikuti langkah ini untuk menjalankan proyek di lingkungan lokal:
+
+### 1. Clone Repository
+```bash
+git clone [https://github.com/username/chainify.git](https://github.com/username/chainify.git)
+cd chainify
+```
+
+### 2. Install Dependencies
 ```bash
 npm install
 ```
 
-### Development
+### 3. Konfigurasi Env
+Ubah .env.example menjadi .env. Jika ingin menggunakan IPFS sendiri maka tinggal mengubah JWT Pinata yang digunakan, begitu juga dengan smart contract dengan tambahan update informasi contractConfig.ts (namun tidak disarankan untuk menggunakan smart contract lain karena kesesuaian sistem).
 
-Start the development server with HMR:
-
+### 4. Menjalankan Aplikasi
 ```bash
 npm run dev
 ```
-
-Your application will be available at `http://localhost:5173`.
-
-## Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
